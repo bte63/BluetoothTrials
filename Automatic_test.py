@@ -5,10 +5,6 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import math
 
 
-
-
-
-
 class ctkApp:
 
     def __init__(self):
