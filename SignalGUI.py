@@ -23,7 +23,7 @@ class SignalGUI:
     def create_signal_hud(self, x, **callbacks):
         # Put the plot in
         self.create_line(x, new=True)
-        #self.create_hist(x)
+
 
         # Add buttons
         # Scan on/off button
@@ -105,69 +105,36 @@ class SignalGUI:
         self.av_signals.place(relx=0.19, rely=0.26)
 
     def update(self, x):
+        cutoff = 25
+
         self.device_signal_count.configure(text=f"Device Signal Count\n{x[x.MACID==self.MACID].shape[0]}")
 
-        cutoff = 5
 
         av_rssi = round(x[x.MACID==self.MACID].RSSI[(time.time() - x.Time) < cutoff].mean(), 1)
-        av_sig = round(x[x.MACID==self.MACID][(time.time() - x.Time) < cutoff].shape[0] / 5, 1)
+        av_sig = round(x[x.MACID==self.MACID][(time.time() - x.Time) < cutoff].shape[0] / cutoff, 1)
         self.av_rssi.configure(text=f"Av. Device RSSI\n{av_rssi}")
         self.av_signals.configure(text=f"Av. Signals per Second\n{av_sig}")
 
         # Do this every 10 cycles
         if (self.update_counter % 10) == 0:
-            avs = x.groupby('MACID').mean().sort_values(by="RSSI", ascending=False)
-            self.dropdown.configure(values=avs.index.tolist())
+            now = time.time()
+
+            counts = x[(now - x.Time) < cutoff]
+            counts = counts.groupby('MACID').count()
+            counts.RSSI = counts.RSSI / cutoff
+            counts = counts.sort_values(by="RSSI", ascending=False)
+            counts = counts.iloc[0:30, :]
+
+            self.dropdown.configure(values=counts.index.tolist())
 
         self.create_line(x, new=False)
 
         self.update_counter += 1
-        #self.create_bar(x, new=False)
+
 
     def select_MACID(self, selection):
         self.MACID = selection
         self.device_name.configure(text=f"Device\n{self.MACID}")
-
-    def create_bar(self, x, new=True):
-        '''
-        Creates or updates a bar graph
-        '''
-        plt.close()
-
-        avs = x.groupby('MACID').mean().sort_values(by="RSSI", ascending=False)
-        avs = avs.iloc[0:15, :]
-
-        if new:
-            self.fig, self.ax = plt.subplots()
-            plt.subplots_adjust(bottom=0.35)
-            self.fig.set_size_inches(11.5, 4.5)
-            self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
-
-        self.ax.bar(avs.index, height=avs.RSSI, label=avs.index, color=self.COLOURS)
-        self.ax.set(ylim=(0, -75))
-        self.ax.set_title('Average RSSI Values')
-        self.ax.set_xticklabels(avs.index, rotation=90, fontsize=10)
-
-        self.canvas.draw()
-
-        if new:
-            self.canvas.get_tk_widget().place(relx=0.02, rely=0.48)
-        else:
-            self.ax.clear()
-
-    def create_hist(self, x, new=True):
-        if new:
-            self.figh, self.axh = plt.subplots()
-            self.figh.set_size_inches(6.95, 4)
-            self.canvash = FigureCanvasTkAgg(self.figh, master=self.root)
-
-        self.axh.hist(x.RSSI, bins=12, lw=1, ec="yellow", fc="green", alpha=0.5)
-        self.canvash.draw()
-
-        if new:
-            self.canvash.get_tk_widget().place(relx=0.4, rely=0.025)
-        else:
-            self.axh.clear()
 
     def create_line(self, x, new=True):
         if new:
@@ -177,6 +144,9 @@ class SignalGUI:
 
         mask = x.MACID == self.MACID
 
+        self.axl.set_title("RSSI Over Time")
+        self.axl.set_xlabel("Time")
+        self.axl.set_ylabel("RSSI")
         self.axl.plot(x.Time[mask], x.RSSI[mask])
         self.canvasl.draw()
 

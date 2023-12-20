@@ -2,7 +2,6 @@ import time
 import pandas as pd
 import customtkinter as ctk
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from threading import Thread
 from gi.repository import GLib
 from pydbus import SystemBus
@@ -10,6 +9,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 from AntennaGUI import AntennaGUI
 from SignalGUI import SignalGUI
+from WaterfallGUI import WaterfallGUI
 
 
 class ctkApp:
@@ -29,12 +29,19 @@ class ctkApp:
         self.swap_view_toggle = False
 
         # The display for the antenna view
-        self.antenna_hud = AntennaGUI(
+        # self.antenna_hud = AntennaGUI(
+        #     self.root, x,
+        #     quit=self.quit,
+        #     toggle_update=self.toggle_update,
+        #     toggle_view=self.toggle_view,
+        #     reset=self.reset_data
+        # )
+
+        self.antenna_hud = WaterfallGUI(
             self.root, x,
-            quit=self.quit,
-            toggle_update=self.toggle_update,
-            toggle_view=self.toggle_view
+            quit=self.quit
         )
+
         self.signal_hud = None
 
     def run(self):
@@ -90,16 +97,29 @@ class ctkApp:
                 self.root, x,
                 quit=self.quit,
                 toggle_update=self.toggle_update,
-                toggle_view=self.toggle_view
+                toggle_view=self.toggle_view,
+                reset=self.reset_data
             )
-
-
 
     def optionmenu_callback(self, choice):
         print("optionmenu dropdown clicked:", choice)
 
     def quit(self):
         self.QUIT = True
+
+    def reset_data(self):
+        global x
+
+        x = pd.DataFrame({
+            "MACID": [],
+            "RSSI": [],
+            "Time": []
+        })
+
+    def save_data(self):
+        now = time.time()
+        filename = "BTScan_log_" + str(now) + ".csv"
+        x.to_csv(filename, index=False)
 
 
 # ****************** SCANNER *************************
@@ -176,7 +196,7 @@ adapter.SetDiscoveryFilter(
 
 if __name__ == "__main__":
     adapter.StartDiscovery()
-    time.sleep(0.5)
+    time.sleep(1)
     CTK_Window = ctkApp()
 
     data = Thread(target=mainloop.run, daemon=True)
@@ -186,5 +206,6 @@ if __name__ == "__main__":
     plt.close()
     GLib.timeout_add_seconds(0.1, stop_scan)
     data.join()
+
 
 
